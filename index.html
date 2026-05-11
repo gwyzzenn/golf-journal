@@ -870,6 +870,62 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
 .c-cta:hover { background:#333; }
 .celebrate-overlay.open .c-cta { animation:ctaIn .48s cubic-bezier(.22,1,.36,1) .96s forwards; }
 @keyframes ctaIn { to{transform:translateY(0);opacity:1} }
+
+/* ── VIDEO UPLOAD ── */
+.video-upload-area {
+  border: 1.5px dashed var(--bd-strong);
+  border-radius: var(--r-md);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg);
+  transition: border-color .15s, background .15s;
+  position: relative;
+}
+.video-upload-area:hover { border-color: var(--green); background: var(--green-pale); }
+.video-upload-area input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.video-upload-icon { font-size: 28px; margin-bottom: 6px; }
+.video-upload-label { font-size: 13px; font-weight: 500; color: var(--fg-mid); margin-bottom: 3px; }
+.video-upload-sub   { font-size: 11px; color: var(--fg-muted); }
+
+.video-progress-wrap { margin-top: 10px; display: none; }
+.video-progress-bar {
+  height: 4px; border-radius: var(--r-full);
+  background: var(--bg-muted); overflow: hidden; margin-bottom: 6px;
+}
+.video-progress-fill {
+  height: 100%; border-radius: var(--r-full);
+  background: var(--green); width: 0%;
+  transition: width .3s ease;
+}
+.video-progress-label { font-size: 11px; color: var(--fg-muted); text-align: center; }
+
+.video-preview-wrap { margin-top: 10px; display: none; }
+.video-preview-wrap video {
+  width: 100%; border-radius: var(--r-md);
+  background: #000; display: block;
+  max-height: 220px; object-fit: contain;
+}
+.video-preview-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 6px;
+}
+.video-preview-name { font-size: 11px; color: var(--fg-muted); }
+.video-remove-btn {
+  font-size: 11px; font-weight: 600; color: var(--bad);
+  background: none; border: none; cursor: pointer; padding: 2px 6px;
+}
+
+/* Detail view video */
+.detail-video {
+  width: 100%; border-radius: var(--r-md);
+  background: #000; display: block;
+  max-height: 260px; object-fit: contain;
+  margin-top: 6px;
+}
+
 </style>
 </head>
 <body>
@@ -1030,8 +1086,8 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
       </button>
     </div>
     <div class="type-picker">
-      <button class="type-opt active-lesson" id="type-lesson" onclick="switchType('lesson')">📋 上課記錄</button>
-      <button class="type-opt" id="type-practice" onclick="switchType('practice')">🏌️ 練習記錄</button>
+      <button class="type-opt active-lesson" id="type-practice" onclick="switchType('practice')">🏌️ 練習記錄</button>
+      <button class="type-opt" id="type-lesson" onclick="switchType('lesson')">📋 上課記錄</button>
     </div>
     <div class="fgroup">
       <label class="flabel">日期</label>
@@ -1071,6 +1127,26 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
       <div class="fgroup"><label class="flabel">教練重點指導</label><textarea class="ftextarea" id="f-coaching" placeholder="教練說了什麼重要提示？"></textarea></div>
       <div class="fgroup"><label class="flabel">自我感受 &amp; 收穫</label><textarea class="ftextarea" id="f-lnotes" placeholder="今天練得如何？"></textarea></div>
       <div class="fgroup"><label class="flabel">下次目標</label><input type="text" class="finput" id="f-lgoal" placeholder="例：改善握杆…"></div>
+      <div class="fgroup">
+        <label class="flabel">課堂影片</label>
+        <div class="video-upload-area" id="lvideo-upload-area" onclick="document.getElementById('f-lvideo').click()">
+          <input type="file" id="f-lvideo" accept="video/*" onchange="handleVideoSelect(event, 'lesson')" onclick="event.stopPropagation()">
+          <div class="video-upload-icon">🎬</div>
+          <div class="video-upload-label">點擊選擇影片</div>
+          <div class="video-upload-sub">支援 MP4、MOV、AVI，建議 5 分鐘以內</div>
+        </div>
+        <div class="video-progress-wrap" id="lvideo-progress-wrap">
+          <div class="video-progress-bar"><div class="video-progress-fill" id="lvideo-progress-fill"></div></div>
+          <div class="video-progress-label" id="lvideo-progress-label">上傳中…</div>
+        </div>
+        <div class="video-preview-wrap" id="lvideo-preview-wrap">
+          <video id="lvideo-preview" controls playsinline></video>
+          <div class="video-preview-meta">
+            <span class="video-preview-name" id="lvideo-preview-name"></span>
+            <button class="video-remove-btn" onclick="removeVideo('lesson')">✕ 移除</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- PRACTICE -->
@@ -1112,6 +1188,26 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
       </div>
       <div class="fgroup"><label class="flabel">練習心得</label><textarea class="ftextarea" id="f-pnotes" placeholder="今天練了什麼感受？有什麼突破？" style="min-height:90px"></textarea></div>
       <div class="fgroup"><label class="flabel">練習重點</label><textarea class="ftextarea" id="f-pkeypoints" placeholder="最重要的技術重點是什麼？下次要記住的動作？" style="min-height:72px"></textarea></div>
+      <div class="fgroup">
+        <label class="flabel">練習影片</label>
+        <div class="video-upload-area" id="video-upload-area" onclick="document.getElementById('f-video').click()">
+          <input type="file" id="f-video" accept="video/*" onchange="handleVideoSelect(event)" onclick="event.stopPropagation()">
+          <div class="video-upload-icon">🎬</div>
+          <div class="video-upload-label">點擊選擇影片</div>
+          <div class="video-upload-sub">支援 MP4、MOV、AVI，建議 5 分鐘以內</div>
+        </div>
+        <div class="video-progress-wrap" id="video-progress-wrap">
+          <div class="video-progress-bar"><div class="video-progress-fill" id="video-progress-fill"></div></div>
+          <div class="video-progress-label" id="video-progress-label">上傳中…</div>
+        </div>
+        <div class="video-preview-wrap" id="video-preview-wrap">
+          <video id="video-preview" controls playsinline></video>
+          <div class="video-preview-meta">
+            <span class="video-preview-name" id="video-preview-name"></span>
+            <button class="video-remove-btn" onclick="removeVideo()">✕ 移除</button>
+          </div>
+        </div>
+      </div>
       <div class="body-divider"><span class="body-divider-label">💪 當天身體狀況</span></div>
       <div class="fgroup"><label class="flabel">暖身了嗎？</label>
         <div class="cond-row">
@@ -1285,7 +1381,7 @@ async function apiGet(type){
     energy:Number(row.energy)||7,pain:Number(row.pain)||2,focus:Number(row.focus)||7,
     skills:typeof row.skills==='string'?row.skills.split(',').filter(Boolean):(row.skills||[]),
     painParts:typeof row.painParts==='string'?row.painParts.split(',').filter(Boolean):(row.painParts||[]),
-    timeOfDay:row.timeOfDay||'',keyPoints:row.keyPoints||''}))
+    timeOfDay:row.timeOfDay||'',keyPoints:row.keyPoints||'',videoUrl:row.videoUrl||''}))
 }
 async function apiSave(type,data){
   const r=await fetch(API,{method:'POST',body:JSON.stringify({action:'save',type,data})})
@@ -1341,7 +1437,7 @@ function openAddModal(){
   if(isSaving)return
   document.getElementById('f-date').value=new Date().toISOString().slice(0,10)
   document.getElementById('add-modal').classList.add('open')
-  switchType('lesson')
+  switchType('practice')
 }
 function closeAddModal(){document.getElementById('add-modal').classList.remove('open')}
 function switchType(t){
@@ -1383,7 +1479,8 @@ async function saveRecord(){
       rating:parseInt(document.querySelector('input[name=lrating]:checked')?.value||3),
       coaching:document.getElementById('f-coaching').value.trim(),
       notes:document.getElementById('f-lnotes').value.trim(),
-      goal:document.getElementById('f-lgoal').value.trim()}
+      goal:document.getElementById('f-lgoal').value.trim(),
+      videoUrl:currentLVideoUrl}
     lessons.unshift(record);resetLesson()
   }else{
     type='practices'
@@ -1395,6 +1492,7 @@ async function saveRecord(){
       rating:parseInt(document.querySelector('input[name=prating]:checked')?.value||3),
       notes:document.getElementById('f-pnotes').value.trim(),
       keyPoints:document.getElementById('f-pkeypoints').value.trim(),
+      videoUrl:currentVideoUrl,
       warmup:conds['wu']||'',
       energy:parseInt(document.getElementById('f-energy').value),
       pain:parseInt(document.getElementById('f-pain').value),
@@ -1418,11 +1516,13 @@ async function saveRecord(){
 }
 function resetLesson(){
   ;['f-ltitle','f-coach','f-venue','f-coaching','f-lnotes','f-lgoal'].forEach(id=>document.getElementById(id).value='')
+  resetVideoFields('lesson')
   document.querySelectorAll('[id^=ls-]').forEach(c=>c.checked=false)
   document.getElementById('lr3').checked=true
 }
 function resetPractice(){
   ;['f-pvenue','f-pduration','f-pballs','f-pnotes','f-pkeypoints','f-bnotes'].forEach(id=>document.getElementById(id).value='')
+  resetVideoFields('practice')
   document.querySelectorAll('[id^=ps-],[id^=bp-]').forEach(c=>c.checked=false)
   document.getElementById('pr3').checked=true
   document.getElementById('f-energy').value=7;sv('v-energy','7')
@@ -1629,7 +1729,8 @@ function openDetail(type,id){
       ${l.skills.length?`<div class="detail-block"><div class="detail-lbl">練習項目</div><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${l.skills.map(s=>`<span class="skill-chip">${SI[s]||''}${s}</span>`).join('')}</div></div>`:''}
       ${l.coaching?`<div class="detail-block"><div class="detail-lbl">教練指導</div><div class="detail-txt">${l.coaching.replace(/\n/g,'<br>')}</div></div>`:''}
       ${l.notes?`<div class="detail-block"><div class="detail-lbl">自我感受</div><div class="detail-txt">${l.notes.replace(/\n/g,'<br>')}</div></div>`:''}
-      ${l.goal?`<div class="detail-block"><div class="detail-lbl">下次目標</div><div class="detail-txt">${l.goal}</div></div>`:''}`;
+      ${l.goal?`<div class="detail-block"><div class="detail-lbl">下次目標</div><div class="detail-txt">${l.goal}</div></div>`:''}
+      ${l.videoUrl?`<div class="detail-block"><div class="detail-lbl">課堂影片</div><video class="detail-video" src="${l.videoUrl}" controls playsinline></video></div>`:''}`;
     document.getElementById('delete-btn').onclick=()=>deleteRecord('lesson',id)
   }else{
     const p=practices.find(x=>x.id===id);if(!p)return
@@ -1645,6 +1746,7 @@ function openDetail(type,id){
       <div class="detail-block"><div class="detail-lbl">今日感覺</div><div style="font-size:20px;color:var(--green-dark)">${stars(p.rating)}</div></div>
       ${p.notes?`<div class="detail-block"><div class="detail-lbl">心得</div><div class="detail-txt prominent">${p.notes.replace(/\n/g,'<br>')}</div></div>`:''}
       ${p.keyPoints?`<div class="detail-block"><div class="detail-lbl">練習重點</div><div class="detail-txt prominent">${p.keyPoints.replace(/\n/g,'<br>')}</div></div>`:''}
+      ${p.videoUrl?`<div class="detail-block"><div class="detail-lbl">練習影片</div><video class="detail-video" src="${p.videoUrl}" controls playsinline></video></div>`:''}
       <div class="detail-sep"></div>
       <div class="detail-sep-label">💪 當天身體狀況</div>
       <div class="vitals-row" style="margin-bottom:14px">
@@ -1678,6 +1780,107 @@ async function deleteRecord(type,id){
     localStorage.setItem('gj_lessons',JSON.stringify(lessons))
     localStorage.setItem('gj_practices',JSON.stringify(practices))
   }
+}
+
+
+/* ══════════════════════════════════════
+   CLOUDINARY VIDEO UPLOAD
+   ══════════════════════════════════════ */
+const CLOUDINARY_CLOUD = 'dli2tmk67'
+const CLOUDINARY_PRESET = 'practice_record'
+
+let currentVideoUrl = ''      // practice
+let currentLVideoUrl = ''     // lesson
+
+function handleVideoSelect(event, type = 'practice') {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const isLesson = type === 'lesson'
+  const prefix   = isLesson ? 'l' : ''
+
+  const progressWrap = document.getElementById(`${prefix}video-progress-wrap`)
+  const progressFill = document.getElementById(`${prefix}video-progress-fill`)
+  const progressLabel= document.getElementById(`${prefix}video-progress-label`)
+  const previewWrap  = document.getElementById(`${prefix}video-preview-wrap`)
+  const previewEl    = document.getElementById(`${prefix}video-preview`)
+  const previewName  = document.getElementById(`${prefix}video-preview-name`)
+  const uploadArea   = document.getElementById(`${prefix}video-upload-area`)
+
+  // Show progress, hide preview
+  progressWrap.style.display = 'block'
+  previewWrap.style.display  = 'none'
+  progressFill.style.width   = '0%'
+  progressLabel.textContent  = '準備上傳…'
+  uploadArea.style.pointerEvents = 'none'
+  uploadArea.style.opacity = '0.6'
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', CLOUDINARY_PRESET)
+  formData.append('resource_type', 'video')
+
+  const xhr = new XMLHttpRequest()
+  xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/video/upload`)
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100)
+      progressFill.style.width = pct + '%'
+      progressLabel.textContent = `上傳中… ${pct}%`
+    }
+  }
+
+  xhr.onload = () => {
+    uploadArea.style.pointerEvents = ''
+    uploadArea.style.opacity = ''
+    if (xhr.status === 200) {
+      const res = JSON.parse(xhr.responseText)
+      const url = res.secure_url
+
+      if (isLesson) currentLVideoUrl = url
+      else          currentVideoUrl  = url
+
+      progressWrap.style.display = 'none'
+      previewWrap.style.display  = 'block'
+      previewEl.src = url
+      previewName.textContent = file.name
+      progressLabel.textContent = '上傳完成 ✓'
+      toast('影片上傳完成 ✓')
+    } else {
+      progressWrap.style.display = 'none'
+      toast('影片上傳失敗，請再試一次', false)
+      progressLabel.textContent = '上傳失敗'
+    }
+  }
+
+  xhr.onerror = () => {
+    uploadArea.style.pointerEvents = ''
+    uploadArea.style.opacity = ''
+    progressWrap.style.display = 'none'
+    toast('網路錯誤，無法上傳影片', false)
+  }
+
+  xhr.send(formData)
+}
+
+function removeVideo(type = 'practice') {
+  const isLesson = type === 'lesson'
+  const prefix   = isLesson ? 'l' : ''
+
+  if (isLesson) currentLVideoUrl = ''
+  else          currentVideoUrl  = ''
+
+  document.getElementById(`${prefix}video-preview-wrap`).style.display = 'none'
+  document.getElementById(`${prefix}video-preview`).src = ''
+  document.getElementById(`${prefix}video-preview-name`).textContent = ''
+  document.getElementById(`${prefix}f-${prefix}video`).value = ''
+  const progressWrap = document.getElementById(`${prefix}video-progress-wrap`)
+  if (progressWrap) progressWrap.style.display = 'none'
+}
+
+function resetVideoFields(type = 'practice') {
+  removeVideo(type)
 }
 
 // overlay close
