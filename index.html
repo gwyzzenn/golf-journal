@@ -703,6 +703,14 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
   transition:background .15s;
 }
 .btn-danger:hover { background:#FDE9E9; }
+.btn-edit {
+  width:100%; padding:13px; margin-top:10px;
+  border:1.5px solid var(--bd-strong); border-radius:var(--r-full);
+  font-family:var(--sans); font-size:14px; font-weight:600;
+  background:var(--bg); color:var(--fg); cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.btn-edit:hover { background:var(--bg-section); border-color:var(--green); }
 
 /* ─── detail ─── */
 .detail-block { margin-bottom:18px; }
@@ -925,6 +933,21 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
   max-height: 260px; object-fit: contain;
   margin-top: 6px;
 }
+.video-link-btn {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 13px 16px;
+  background: var(--bg-section);
+  border: 1.5px solid var(--bd);
+  border-radius: var(--r-md);
+  text-decoration: none; color: var(--fg);
+  transition: border-color .15s, background .15s;
+}
+.video-link-btn:hover { border-color: var(--green); background: var(--green-pale); }
+.video-link-icon { font-size: 22px; flex-shrink: 0; }
+.video-link-text { flex: 1; }
+.video-link-title { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 2px; }
+.video-link-sub   { font-size: 11px; color: var(--fg-muted); }
+.video-link-arrow { font-size: 16px; color: var(--fg-muted); }
 
 </style>
 </head>
@@ -1264,6 +1287,7 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
       </button>
     </div>
     <div id="detail-content"></div>
+    <button class="btn-edit" id="edit-btn">編輯記錄</button>
     <button class="btn-danger" id="delete-btn">刪除此記錄</button>
   </div>
 </div>
@@ -1439,7 +1463,11 @@ function openAddModal(){
   document.getElementById('add-modal').classList.add('open')
   switchType('practice')
 }
-function closeAddModal(){document.getElementById('add-modal').classList.remove('open')}
+function closeAddModal(){
+  document.getElementById('add-modal').classList.remove('open')
+  editingId=null; editingType=null
+  document.querySelector('.modal-title').textContent='新增紀錄'
+}
 function switchType(t){
   currentType=t
   ;['lesson','practice'].forEach(x=>{
@@ -1481,7 +1509,12 @@ async function saveRecord(){
       notes:document.getElementById('f-lnotes').value.trim(),
       goal:document.getElementById('f-lgoal').value.trim(),
       videoUrl:currentLVideoUrl}
-    lessons.unshift(record);resetLesson()
+    if(editingId){
+      record.id=editingId
+      const idx=lessons.findIndex(x=>x.id===editingId)
+      if(idx!==-1) lessons[idx]=record; else lessons.unshift(record)
+    } else { lessons.unshift(record) }
+    resetLesson()
   }else{
     type='practices'
     record={id:Date.now(),date,timeOfDay:currentTod,
@@ -1499,7 +1532,12 @@ async function saveRecord(){
       focus:parseInt(document.getElementById('f-focus').value),
       painParts:[...document.querySelectorAll('[id^=bp-]:checked')].map(c=>c.value),
       sleep:conds['sleep']||'',bodyNotes:document.getElementById('f-bnotes').value.trim()}
-    practices.unshift(record);resetPractice()
+    if(editingId){
+      record.id=editingId
+      const idx=practices.findIndex(x=>x.id===editingId)
+      if(idx!==-1) practices[idx]=record; else practices.unshift(record)
+    } else { practices.unshift(record) }
+    resetPractice()
   }
   closeAddModal();refreshCurrentPage()
   setSaving(true)
@@ -1507,7 +1545,8 @@ async function saveRecord(){
     await apiSave(type,record)
     localStorage.setItem('gj_lessons',JSON.stringify(lessons))
     localStorage.setItem('gj_practices',JSON.stringify(practices))
-    Celebrate.show(currentType,currentType==='lesson'?lessons.length:practices.length)
+    if(!editingId) Celebrate.show(currentType,currentType==='lesson'?lessons.length:practices.length)
+    else toast('記錄已更新 ✓')
   }catch(e){
     toast('網路問題，已暫存本機',false)
     localStorage.setItem('gj_lessons',JSON.stringify(lessons))
@@ -1730,8 +1769,9 @@ function openDetail(type,id){
       ${l.coaching?`<div class="detail-block"><div class="detail-lbl">教練指導</div><div class="detail-txt">${l.coaching.replace(/\n/g,'<br>')}</div></div>`:''}
       ${l.notes?`<div class="detail-block"><div class="detail-lbl">自我感受</div><div class="detail-txt">${l.notes.replace(/\n/g,'<br>')}</div></div>`:''}
       ${l.goal?`<div class="detail-block"><div class="detail-lbl">下次目標</div><div class="detail-txt">${l.goal}</div></div>`:''}
-      ${l.videoUrl?`<div class="detail-block"><div class="detail-lbl">課堂影片</div><video class="detail-video" src="${l.videoUrl}" controls playsinline></video></div>`:''}`;
+      ${l.videoUrl?`<div class="detail-block"><div class="detail-lbl">課堂影片</div><a class="video-link-btn" href="${l.videoUrl}" target="_blank" rel="noopener"><span class="video-link-icon">🎬</span><span class="video-link-text"><div class="video-link-title">播放課堂影片</div><div class="video-link-sub">點擊在新視窗開啟</div></span><span class="video-link-arrow">›</span></a></div>`:''}`;
     document.getElementById('delete-btn').onclick=()=>deleteRecord('lesson',id)
+    document.getElementById('edit-btn').onclick=()=>openEdit('lesson',id)
   }else{
     const p=practices.find(x=>x.id===id);if(!p)return
     const tod=todInfo(p.timeOfDay)
@@ -1746,7 +1786,7 @@ function openDetail(type,id){
       <div class="detail-block"><div class="detail-lbl">今日感覺</div><div style="font-size:20px;color:var(--green-dark)">${stars(p.rating)}</div></div>
       ${p.notes?`<div class="detail-block"><div class="detail-lbl">心得</div><div class="detail-txt prominent">${p.notes.replace(/\n/g,'<br>')}</div></div>`:''}
       ${p.keyPoints?`<div class="detail-block"><div class="detail-lbl">練習重點</div><div class="detail-txt prominent">${p.keyPoints.replace(/\n/g,'<br>')}</div></div>`:''}
-      ${p.videoUrl?`<div class="detail-block"><div class="detail-lbl">練習影片</div><video class="detail-video" src="${p.videoUrl}" controls playsinline></video></div>`:''}
+      ${p.videoUrl?`<div class="detail-block"><div class="detail-lbl">練習影片</div><a class="video-link-btn" href="${p.videoUrl}" target="_blank" rel="noopener"><span class="video-link-icon">🎬</span><span class="video-link-text"><div class="video-link-title">播放練習影片</div><div class="video-link-sub">點擊在新視窗開啟</div></span><span class="video-link-arrow">›</span></a></div>`:''}
       <div class="detail-sep"></div>
       <div class="detail-sep-label">💪 當天身體狀況</div>
       <div class="vitals-row" style="margin-bottom:14px">
@@ -1759,6 +1799,7 @@ function openDetail(type,id){
       ${p.painParts&&p.painParts.length?`<div class="detail-block"><div class="detail-lbl">不舒服部位</div><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${p.painParts.map(pp=>`<span style="font-size:11px;padding:3px 10px;border-radius:999px;background:#FEF6E4;color:var(--warn)">${pp}</span>`).join('')}</div></div>`:''}
       ${p.bodyNotes?`<div class="detail-block"><div class="detail-lbl">身體備註</div><div class="detail-txt">${p.bodyNotes.replace(/\n/g,'<br>')}</div></div>`:''}`;
     document.getElementById('delete-btn').onclick=()=>deleteRecord('practice',id)
+    document.getElementById('edit-btn').onclick=()=>openEdit('practice',id)
   }
   document.getElementById('detail-content').innerHTML=html
   document.getElementById('detail-modal').classList.add('open')
@@ -1881,6 +1922,85 @@ function removeVideo(type = 'practice') {
 
 function resetVideoFields(type = 'practice') {
   removeVideo(type)
+}
+
+
+function openEdit(type, id) {
+  closeDetail()
+  const isLesson = type === 'lesson'
+  const r = isLesson ? lessons.find(x=>x.id===id) : practices.find(x=>x.id===id)
+  if (!r) return
+
+  editingId   = id
+  editingType = type
+
+  // open modal with correct type
+  switchType(type)
+  document.getElementById('add-modal').classList.add('open')
+  document.querySelector('.modal-title').textContent = '編輯記錄'
+
+  // fill date
+  document.getElementById('f-date').value = (r.date||'').replace(/\//g,'-').slice(0,10)
+
+  if (isLesson) {
+    document.getElementById('f-ltitle').value    = r.title    || ''
+    document.getElementById('f-coach').value     = r.coach    || ''
+    document.getElementById('f-venue').value     = r.venue    || ''
+    document.getElementById('f-coaching').value  = r.coaching || ''
+    document.getElementById('f-lnotes').value    = r.notes    || ''
+    document.getElementById('f-lgoal').value     = r.goal     || ''
+    // skills
+    document.querySelectorAll('[id^=ls-]').forEach(cb => {
+      cb.checked = (r.skills||[]).includes(cb.value)
+    })
+    // rating
+    const lr = document.getElementById('lr'+(r.rating||3))
+    if (lr) lr.checked = true
+    // existing video
+    if (r.videoUrl) {
+      currentLVideoUrl = r.videoUrl
+      const pw = document.getElementById('lvideo-preview-wrap')
+      const pv = document.getElementById('lvideo-preview')
+      const pn = document.getElementById('lvideo-preview-name')
+      if (pw && pv) { pw.style.display='block'; pv.src=r.videoUrl; pn.textContent='已有影片'; }
+    }
+  } else {
+    // time of day
+    selectTod(r.timeOfDay || '')
+    document.getElementById('f-pvenue').value    = r.venue     || ''
+    document.getElementById('f-pduration').value = r.duration  || ''
+    document.getElementById('f-pballs').value    = r.balls     || ''
+    document.getElementById('f-pnotes').value    = r.notes     || ''
+    document.getElementById('f-pkeypoints').value= r.keyPoints || ''
+    // skills
+    document.querySelectorAll('[id^=ps-]').forEach(cb => {
+      cb.checked = (r.skills||[]).includes(cb.value)
+    })
+    // pain parts
+    document.querySelectorAll('[id^=bp-]').forEach(cb => {
+      cb.checked = (r.painParts||[]).includes(cb.value)
+    })
+    // rating
+    const pr = document.getElementById('pr'+(r.rating||3))
+    if (pr) pr.checked = true
+    // sliders
+    ;['energy','pain','focus'].forEach(key => {
+      const el = document.getElementById('f-'+key)
+      if (el) { el.value = r[key]||7; sv('v-'+key, r[key]||7) }
+    })
+    // conditions
+    if (r.warmup) selectCond('wu', r.warmup)
+    if (r.sleep)  selectCond('sleep', r.sleep)
+    document.getElementById('f-bnotes').value = r.bodyNotes || ''
+    // existing video
+    if (r.videoUrl) {
+      currentVideoUrl = r.videoUrl
+      const pw = document.getElementById('video-preview-wrap')
+      const pv = document.getElementById('video-preview')
+      const pn = document.getElementById('video-preview-name')
+      if (pw && pv) { pw.style.display='block'; pv.src=r.videoUrl; pn.textContent='已有影片'; }
+    }
+  }
 }
 
 // overlay close
