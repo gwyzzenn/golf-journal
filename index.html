@@ -1100,7 +1100,7 @@ input[type=range].warn-thumb::-webkit-slider-thumb  { background:var(--warn); }
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
     <div class="sheet-header">
-      <div class="modal-title" style="margin-bottom:0">新增紀錄</div>
+      <div class="modal-title" id="add-modal-title" style="margin-bottom:0">新增紀錄</div>
       <button class="sheet-close" onclick="closeAddModal()" aria-label="關閉">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <line x1="1" y1="1" x2="13" y2="13"/>
@@ -1362,7 +1362,7 @@ const Celebrate={
 
 /* ── CORE ── */
 const API='https://script.google.com/macros/s/AKfycbxuJBFeidUa8wKYyiPgMO8myClv9o-quswDyTRHJUbtWu-vG8uZ-fA7gVexSV5hZKq7/exec'
-let lessons=[],practices=[],currentType='lesson',currentTod='',isSaving=false
+let lessons=[],practices=[],currentType='lesson',currentTod='',isSaving=false,editingId=null,editingType=null
 const conds={}
 const SI={'開球':'🏌️','鐵桿':'⛳','推桿':'🎯','切桿':'🌿','握杆':'✋','站姿':'🧍','揮杆弧線':'🌀','沙坑':'🏖️','短切球':'🏔️'}
 
@@ -1466,7 +1466,7 @@ function openAddModal(){
 function closeAddModal(){
   document.getElementById('add-modal').classList.remove('open')
   editingId=null; editingType=null
-  document.querySelector('.modal-title').textContent='新增紀錄'
+  document.getElementById('add-modal-title').textContent='新增紀錄'
 }
 function switchType(t){
   currentType=t
@@ -1492,66 +1492,101 @@ function selectCond(g,val){
 
 /* ── SAVE ── */
 async function saveRecord(){
-  const date=document.getElementById('f-date').value
-  if(!date){alert('請選擇日期！');return}
-  if(isSaving)return
-  let record,type
-  if(currentType==='lesson'){
-    const title=document.getElementById('f-ltitle').value.trim()
-    if(!title){alert('請填寫課堂主題！');return}
-    type='lessons'
-    record={id:Date.now(),date,title,
-      coach:document.getElementById('f-coach').value.trim(),
-      venue:document.getElementById('f-venue').value.trim(),
-      skills:[...document.querySelectorAll('[id^=ls-]:checked')].map(c=>c.value),
-      rating:parseInt(document.querySelector('input[name=lrating]:checked')?.value||3),
-      coaching:document.getElementById('f-coaching').value.trim(),
-      notes:document.getElementById('f-lnotes').value.trim(),
-      goal:document.getElementById('f-lgoal').value.trim(),
-      videoUrl:currentLVideoUrl}
-    if(editingId){
-      record.id=editingId
-      const idx=lessons.findIndex(x=>x.id===editingId)
-      if(idx!==-1) lessons[idx]=record; else lessons.unshift(record)
-    } else { lessons.unshift(record) }
-    resetLesson()
-  }else{
-    type='practices'
-    record={id:Date.now(),date,timeOfDay:currentTod,
-      venue:document.getElementById('f-pvenue').value.trim(),
-      duration:document.getElementById('f-pduration').value,
-      skills:[...document.querySelectorAll('[id^=ps-]:checked')].map(c=>c.value),
-      balls:document.getElementById('f-pballs').value,
-      rating:parseInt(document.querySelector('input[name=prating]:checked')?.value||3),
-      notes:document.getElementById('f-pnotes').value.trim(),
-      keyPoints:document.getElementById('f-pkeypoints').value.trim(),
-      videoUrl:currentVideoUrl,
-      warmup:conds['wu']||'',
-      energy:parseInt(document.getElementById('f-energy').value),
-      pain:parseInt(document.getElementById('f-pain').value),
-      focus:parseInt(document.getElementById('f-focus').value),
-      painParts:[...document.querySelectorAll('[id^=bp-]:checked')].map(c=>c.value),
-      sleep:conds['sleep']||'',bodyNotes:document.getElementById('f-bnotes').value.trim()}
-    if(editingId){
-      record.id=editingId
-      const idx=practices.findIndex(x=>x.id===editingId)
-      if(idx!==-1) practices[idx]=record; else practices.unshift(record)
-    } else { practices.unshift(record) }
-    resetPractice()
+  if(isSaving) return
+  const wasEditing = editingId
+
+  // date — default to today
+  let dateEl = document.getElementById('f-date')
+  if(!dateEl.value) dateEl.value = new Date().toISOString().slice(0,10)
+  const finalDate = dateEl.value
+
+  let record, type
+
+  try {
+    if(currentType==='lesson'){
+      type = 'lessons'
+      record = {
+        id: wasEditing || Date.now(),
+        date: finalDate,
+        title: document.getElementById('f-ltitle').value.trim() || '上課紀錄',
+        coach: document.getElementById('f-coach').value.trim(),
+        venue: document.getElementById('f-venue').value.trim(),
+        skills: [...document.querySelectorAll('[id^=ls-]:checked')].map(c=>c.value),
+        rating: parseInt(document.querySelector('input[name=lrating]:checked')?.value||3),
+        coaching: document.getElementById('f-coaching').value.trim(),
+        notes: document.getElementById('f-lnotes').value.trim(),
+        goal: document.getElementById('f-lgoal').value.trim(),
+        videoUrl: currentLVideoUrl || ''
+      }
+      if(wasEditing){
+        const idx = lessons.findIndex(x=>x.id===wasEditing)
+        if(idx!==-1) lessons[idx]=record; else lessons.unshift(record)
+      } else {
+        lessons.unshift(record)
+      }
+    } else {
+      type = 'practices'
+      record = {
+        id: wasEditing || Date.now(),
+        date: finalDate,
+        timeOfDay: currentTod,
+        venue: document.getElementById('f-pvenue').value.trim(),
+        duration: document.getElementById('f-pduration').value || '',
+        skills: [...document.querySelectorAll('[id^=ps-]:checked')].map(c=>c.value),
+        balls: document.getElementById('f-pballs').value || '',
+        rating: parseInt(document.querySelector('input[name=prating]:checked')?.value||3),
+        notes: document.getElementById('f-pnotes').value.trim(),
+        keyPoints: document.getElementById('f-pkeypoints').value.trim(),
+        videoUrl: currentVideoUrl || '',
+        warmup: conds['wu'] || '',
+        energy: parseInt(document.getElementById('f-energy').value) || 7,
+        pain: parseInt(document.getElementById('f-pain').value) || 2,
+        focus: parseInt(document.getElementById('f-focus').value) || 7,
+        painParts: [...document.querySelectorAll('[id^=bp-]:checked')].map(c=>c.value),
+        sleep: conds['sleep'] || '',
+        bodyNotes: document.getElementById('f-bnotes').value.trim()
+      }
+      if(wasEditing){
+        const idx = practices.findIndex(x=>x.id===wasEditing)
+        if(idx!==-1) practices[idx]=record; else practices.unshift(record)
+      } else {
+        practices.unshift(record)
+      }
+    }
+  } catch(buildErr) {
+    toast('資料讀取錯誤，請再試一次', false)
+    console.error('saveRecord build error:', buildErr)
+    return
   }
-  closeAddModal();refreshCurrentPage()
+
+  // save locally first, then close
+  localStorage.setItem('gj_lessons', JSON.stringify(lessons))
+  localStorage.setItem('gj_practices', JSON.stringify(practices))
+
+  // reset forms (wrapped so crash here won't block save)
+  try {
+    if(currentType==='lesson') resetLesson()
+    else resetPractice()
+  } catch(e){ console.warn('reset error:', e) }
+
+  closeAddModal()
+  refreshCurrentPage()
+
+  // show feedback immediately
+  if(!wasEditing) Celebrate.show(currentType, currentType==='lesson'?lessons.length:practices.length)
+  else toast('記錄已更新 ✓')
+
+  // sync to Sheets in background
   setSaving(true)
-  try{
-    await apiSave(type,record)
-    localStorage.setItem('gj_lessons',JSON.stringify(lessons))
-    localStorage.setItem('gj_practices',JSON.stringify(practices))
-    if(!editingId) Celebrate.show(currentType,currentType==='lesson'?lessons.length:practices.length)
-    else toast('記錄已更新 ✓')
-  }catch(e){
-    toast('網路問題，已暫存本機',false)
-    localStorage.setItem('gj_lessons',JSON.stringify(lessons))
-    localStorage.setItem('gj_practices',JSON.stringify(practices))
-  }finally{setSaving(false)}
+  try {
+    await apiSave(type, record)
+    localStorage.setItem('gj_lessons', JSON.stringify(lessons))
+    localStorage.setItem('gj_practices', JSON.stringify(practices))
+  } catch(e) {
+    toast('已暫存本機，稍後會同步', false)
+  } finally {
+    setSaving(false)
+  }
 }
 function resetLesson(){
   ;['f-ltitle','f-coach','f-venue','f-coaching','f-lnotes','f-lgoal'].forEach(id=>document.getElementById(id).value='')
@@ -1912,10 +1947,14 @@ function removeVideo(type = 'practice') {
   if (isLesson) currentLVideoUrl = ''
   else          currentVideoUrl  = ''
 
-  document.getElementById(`${prefix}video-preview-wrap`).style.display = 'none'
-  document.getElementById(`${prefix}video-preview`).src = ''
-  document.getElementById(`${prefix}video-preview-name`).textContent = ''
-  document.getElementById(`${prefix}f-${prefix}video`).value = ''
+  const pw = document.getElementById(`${prefix}video-preview-wrap`)
+  const pv = document.getElementById(`${prefix}video-preview`)
+  const pn = document.getElementById(`${prefix}video-preview-name`)
+  if (pw) pw.style.display = 'none'
+  if (pv) pv.src = ''
+  if (pn) pn.textContent = ''
+  const fileInput = document.getElementById(isLesson ? 'f-lvideo' : 'f-video')
+  if (fileInput) fileInput.value = ''
   const progressWrap = document.getElementById(`${prefix}video-progress-wrap`)
   if (progressWrap) progressWrap.style.display = 'none'
 }
@@ -1937,7 +1976,7 @@ function openEdit(type, id) {
   // open modal with correct type
   switchType(type)
   document.getElementById('add-modal').classList.add('open')
-  document.querySelector('.modal-title').textContent = '編輯記錄'
+  document.getElementById('add-modal-title').textContent = '編輯記錄'
 
   // fill date
   document.getElementById('f-date').value = (r.date||'').replace(/\//g,'-').slice(0,10)
